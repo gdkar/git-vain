@@ -1,17 +1,8 @@
-#ifndef _BSD_SOURCE
-#define _BSD_SOURCE
-#endif
 #ifndef _DEFAULT_SOURCE
 #define _DEFAULT_SOURCE
 #endif
 #ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE
-#endif
-#ifndef _XOPEN_SOURCE
-#define _XOPEN_SOURCE
-#endif
-#ifndef _POSIX_SOURCE
-#define _POSIX_SOURCE
 #endif
 
 #include <stdio.h>
@@ -37,11 +28,11 @@
 //  #define SHA_DIGEST_LENGTH CRYPTO_MANGLE(SHA1_DIGEST_LENGTH)
 //#endif
 #endif
-#define MAX_MESSAGE 17
+#define MAX_MESSAGE 33
 
 int headerLen, commitLen, messageLen, dateLen, authOffset, commOffset, authDate, commDate;
-char message[MAX_MESSAGE];
-unsigned char hexMessage[MAX_MESSAGE/2];
+char message[MAX_MESSAGE + 1] = { '\0', };
+unsigned char hexMessage[MAX_MESSAGE/2] = { '\0',};
 bool dry_run = false;
 volatile bool found = false;
 int count=0;
@@ -269,7 +260,7 @@ void *Search(void* argsptr){
   unsigned char hash[SHA_DIGEST_LENGTH];
 
   int da, dc;
-  int max = spiral_max(3600);
+  int max = spiral_max(3600 * 64);
 
   const void * newCommitPartial = newCommit+authOffset;
   int commitLenParital = commitLen-authOffset;
@@ -298,9 +289,9 @@ int main(int argc, char *argv[]) {
   for(int i = 0; i < MAX_MESSAGE; i++) { message[i] = '\0'; }
   if (argc==2) {
     if (!strncmp(argv[1], "--dry-run", sizeof("--dry-run"))) { dry_run = true; }
-    else { strncpy(message, argv[1], MAX_MESSAGE); }
+    else { strncpy(message, argv[1], sizeof(message)); }
   } else if (argc==3) {
-    strncpy(message, argv[1], MAX_MESSAGE);
+    strncpy(message, argv[1], sizeof(message));
     if (!strncmp(argv[2], "--dry-run", sizeof("--dry-run"))) { dry_run = true; }
     else { puts("incorrect arguments"); exit(1); }
   } else if (argc>3) {
@@ -347,13 +338,16 @@ int main(int argc, char *argv[]) {
 
   pthread_t threads[MAX_THREADS+1];
   searchArgs thread_args[MAX_THREADS];
-  for(int i=0; i<MAX_THREADS; i++) {
-    searchArgs args = { i+1,MAX_THREADS, commit};
+  int nthreads = sysconf(_SC_NPROCESSORS_ONLN);
+  if(nthreads > MAX_THREADS)
+    nthreads = MAX_THREADS;
+  for(int i=0; i<nthreads; i++) {
+    searchArgs args = { i+1,nthreads, commit};
     thread_args[i] = args;
     pthread_create(&threads[i], NULL, Search, (void *) &thread_args[i]);
   }
-  pthread_create(&threads[MAX_THREADS], NULL, Display, NULL);
-  for(int i=0; i<MAX_THREADS; i++) {
+  pthread_create(&threads[nthreads], NULL, Display, NULL);
+  for(int i=0; i<nthreads; i++) {
     pthread_join(threads[i], NULL);
   }
 
