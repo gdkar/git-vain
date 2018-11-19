@@ -28,7 +28,7 @@
 //  #define SHA_DIGEST_LENGTH CRYPTO_MANGLE(SHA1_DIGEST_LENGTH)
 //#endif
 #endif
-#define MAX_MESSAGE 33
+#define MAX_MESSAGE 17
 
 int headerLen, commitLen, messageLen, dateLen, authOffset, commOffset, authDate, commDate;
 char message[MAX_MESSAGE + 1] = { '\0', };
