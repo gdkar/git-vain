@@ -1,3 +1,19 @@
+#ifndef _BSD_SOURCE
+#define _BSD_SOURCE
+#endif
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE
+#endif
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
+#endif
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
+#endif
+#ifndef _POSIX_SOURCE
+#define _POSIX_SOURCE
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,12 +23,20 @@
 #include <pthread.h>
 #define MAX_THREADS 8
 
-//#include <openssl/sha.h> // needs -lcrypto
+#define _EXPAND_PP(x) x
+#ifndef NO_OPENSSL
+#include <openssl/sha.h> // needs -lcrypto
+#define CRYPTO_MANGLE_(SYM) SYM
+#define CRYPTO_MANGLE(SYM) CRYPTO_MANGLE_(_EXPAND_PP(SYM))
+#define SHA1_CTX SHA_CTX
+#else
+#define CRYPTO_MANGLE_(SYM) CC_ ## SYM
+#define CRYPTO_MANGLE(SYM) CRYPTO_MANGLE_(_EXPAND_PP(SYM))
 #include <CommonCrypto/CommonDigest.h>
-#ifndef SHA_DIGEST_LENGTH
-  #define SHA_DIGEST_LENGTH CC_SHA1_DIGEST_LENGTH
+//#ifndef SHA_DIGEST_LENGTH
+//  #define SHA_DIGEST_LENGTH CRYPTO_MANGLE(SHA1_DIGEST_LENGTH)
+//#endif
 #endif
-
 #define MAX_MESSAGE 17
 
 int headerLen, commitLen, messageLen, dateLen, authOffset, commOffset, authDate, commDate;
@@ -21,7 +45,7 @@ unsigned char hexMessage[MAX_MESSAGE/2];
 bool dry_run = false;
 volatile bool found = false;
 int count=0;
-CC_SHA1_CTX gctx;
+CRYPTO_MANGLE(SHA1_CTX) gctx;
 
 void setFromGitConfig(char *message) {
   FILE *fp;
@@ -257,9 +281,9 @@ void *Search(void* argsptr){
     spiral_pair(n, &da, &dc);
     alter(newCommit, authOffset, authDate+da, commOffset, commDate+dc);
 
-    CC_SHA1_CTX ctx = gctx;
-    CC_SHA1_Update(&ctx, newCommitPartial, commitLenParital);
-    CC_SHA1_Final(hash, &ctx);
+    CRYPTO_MANGLE(SHA1_CTX) ctx = gctx;
+    CRYPTO_MANGLE(SHA1_Update)(&ctx, newCommitPartial, commitLenParital);
+    CRYPTO_MANGLE(SHA1_Final)(hash, &ctx);
 
     if (shacmp(hash)) {
       if (found) { return NULL; } //another thread beat us
@@ -274,9 +298,9 @@ int main(int argc, char *argv[]) {
   for(int i = 0; i < MAX_MESSAGE; i++) { message[i] = '\0'; }
   if (argc==2) {
     if (!strncmp(argv[1], "--dry-run", sizeof("--dry-run"))) { dry_run = true; }
-    else { strlcpy(message, argv[1], MAX_MESSAGE); }
+    else { strncpy(message, argv[1], MAX_MESSAGE); }
   } else if (argc==3) {
-    strlcpy(message, argv[1], MAX_MESSAGE);
+    strncpy(message, argv[1], MAX_MESSAGE);
     if (!strncmp(argv[2], "--dry-run", sizeof("--dry-run"))) { dry_run = true; }
     else { puts("incorrect arguments"); exit(1); }
   } else if (argc>3) {
@@ -314,8 +338,8 @@ int main(int argc, char *argv[]) {
   dateLen = strlen(dateStr);
 
   // precompute sha up to the changing part
-  CC_SHA1_Init(&gctx);
-  CC_SHA1_Update(&gctx, commit, authOffset);
+  CRYPTO_MANGLE(SHA1_Init)(&gctx);
+  CRYPTO_MANGLE(SHA1_Update)(&gctx, commit, authOffset);
 
   // printf("a: %d, o: %d, ad: %d, od: %d\n", authOffset, commOffset, authDate, commDate);
   // printf("args: %d, message: %s, dry: %d \n", argc, message, dry_run);
