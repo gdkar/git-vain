@@ -12,7 +12,7 @@
 #include <stdbool.h>
 #include <unistd.h> // for read
 #include <pthread.h>
-#define MAX_THREADS 8
+#define MAX_THREADS 32
 
 #define _EXPAND_PP(x) x
 #ifndef NO_OPENSSL
